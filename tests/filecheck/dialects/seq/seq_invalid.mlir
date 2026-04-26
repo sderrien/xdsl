@@ -32,6 +32,17 @@ builtin.module {
 // -----
 
 builtin.module {
+  %clk = "test.op"() : () -> (!seq.clock)
+  %data = "test.op"() : () -> i14
+  %bool = "test.op"() : () -> i1
+
+  // CHECK: Both reset and reset_value must be set when one is
+  %compreg_ce_reset = "seq.compreg.ce"(%data, %clk, %bool, %bool) {operandSegmentSizes = array<i32: 1, 1, 1, 1, 0, 0>} : (i14, !seq.clock, i1, i1) -> i14
+}
+
+// -----
+
+builtin.module {
   // CHECK: Expected either low or high clock value
   %clock = seq.const_clock foobar
 }

@@ -21,6 +21,12 @@ builtin.module {
   // CHECK: %compreg_sym = seq.compreg sym @foo %data, %clk : i14
   // CHECK-GENERIC:    %compreg_sym = "seq.compreg"(%data, %clk) {inner_sym = #hw<innerSym@foo>, operandSegmentSizes = array<i32: 1, 1, 0, 0, 0>} : (i14, !seq.clock) -> i14
 
+  %compreg_ce = seq.compreg.ce %data, %clk, %bool : i14
+  // CHECK: %compreg_ce = seq.compreg.ce %data, %clk, %bool : i14
+  %compreg_ce_reset = seq.compreg.ce %data, %clk, %bool reset %bool, %data : i14
+  // CHECK: %compreg_ce_reset = seq.compreg.ce %data, %clk, %bool reset %bool, %data : i14
+  // CHECK-GENERIC: %compreg_ce = "seq.compreg.ce"(%data, %clk, %bool) {operandSegmentSizes = array<i32: 1, 1, 1, 0, 0, 0>} : (i14, !seq.clock, i1) -> i14
+
   %const_low = seq.const_clock low
   // CHECK: %const_low = seq.const_clock low
   %const_high = seq.const_clock high

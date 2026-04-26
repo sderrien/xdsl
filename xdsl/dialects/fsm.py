@@ -55,7 +55,7 @@ from xdsl.utils.exceptions import VerifyException
 
 @irdl_attr_definition
 class InstanceType(ParametrizedAttribute, TypeAttribute):
-    name = "fsm.instancetype"
+    name = "fsm.instance"
 
 
 @irdl_op_definition
@@ -75,8 +75,8 @@ class MachineOp(IRDLOperation):
     function_type = attr_def(FunctionType)
     arg_attrs = opt_attr_def(ArrayAttr[DictionaryAttr])
     res_attrs = opt_attr_def(ArrayAttr[DictionaryAttr])
-    arg_names = opt_attr_def(ArrayAttr[StringAttr])
-    res_names = opt_attr_def(ArrayAttr[StringAttr])
+    arg_names = opt_attr_def(ArrayAttr[StringAttr], attr_name="argNames")
+    res_names = opt_attr_def(ArrayAttr[StringAttr], attr_name="resNames")
 
     traits = traits_def(NoTerminator(), SymbolTable(), SymbolOpInterface())
 
@@ -324,7 +324,7 @@ class VariableOp(IRDLOperation):
     name = "fsm.variable"
 
     initValue = attr_def()
-    name_var = opt_attr_def(StringAttr)
+    name_var = opt_attr_def(StringAttr, attr_name="name")
 
     result = var_result_def(Attribute)
 
@@ -333,12 +333,14 @@ class VariableOp(IRDLOperation):
         initValue: Attribute,
         name_var: str | None,
         result: Sequence[Attribute],
+        name: str | None = None,
     ):
         attributes: dict[str, Attribute] = {
             "initValue": initValue,
         }
-        if name_var is not None:
-            attributes["name_var"] = StringAttr(name_var)
+        var_name = name if name is not None else name_var
+        if var_name is not None:
+            attributes["name"] = StringAttr(var_name)
         super().__init__(
             result_types=[result],
             attributes=attributes,
@@ -376,19 +378,27 @@ class InstanceOp(IRDLOperation):
 
     name = "fsm.instance"
 
-    sym_name = attr_def(SymbolNameConstraint())
+    inst_name = attr_def(SymbolNameConstraint(), attr_name="name")
 
     machine = attr_def(FlatSymbolRefAttrConstr)
 
     res = result_def(InstanceType)
 
     def __init__(
-        self, sym_name: str, machine: FlatSymbolRefAttr, instance: InstanceType
+        self,
+        sym_name: str | None,
+        machine: FlatSymbolRefAttr,
+        instance: InstanceType,
+        name: str | None = None,
     ):
         if isinstance(machine, str):
             machine = SymbolRefAttr(machine)
+        if name is None and sym_name is None:
+            raise VerifyException("Either 'name' or 'sym_name' must be provided")
+        inst_name = name if name is not None else sym_name
+        assert inst_name is not None
         attributes: dict[str, Attribute] = {
-            "sym_name": StringAttr(sym_name),
+            "name": StringAttr(inst_name),
             "machine": machine,
         }
         super().__init__(result_types=[instance], attributes=attributes)
@@ -465,7 +475,7 @@ class HWInstanceOp(IRDLOperation):
 
     name = "fsm.hw_instance"
 
-    sym_name = attr_def(SymbolNameConstraint())
+    inst_name = attr_def(SymbolNameConstraint(), attr_name="name")
     machine = attr_def(FlatSymbolRefAttrConstr)
     inputs = var_operand_def()
     clock = operand_def(signlessIntegerLike)
@@ -475,21 +485,26 @@ class HWInstanceOp(IRDLOperation):
 
     def __init__(
         self,
-        sym_name: str | StringAttr,
+        sym_name: str | StringAttr | None,
         machine: str | FlatSymbolRefAttr,
         inputs: Sequence[SSAValue | Operation],
         clock: SSAValue | Operation,
         reset: SSAValue | Operation,
         outputs: Sequence[Attribute],
+        name: str | StringAttr | None = None,
     ):
         if isinstance(machine, str):
             machine = SymbolRefAttr(machine)
         clock = SSAValue.get(clock)
         reset = SSAValue.get(reset)
-        if isinstance(sym_name, str):
-            sym_name = StringAttr(sym_name)
+        if name is None and sym_name is None:
+            raise VerifyException("Either 'name' or 'sym_name' must be provided")
+        inst_name = name if name is not None else sym_name
+        assert inst_name is not None
+        if isinstance(inst_name, str):
+            inst_name = StringAttr(inst_name)
         attributes: dict[str, Attribute] = {
-            "sym_name": sym_name,
+            "name": inst_name,
             "machine": machine,
         }
         super().__init__(
@@ -504,7 +519,7 @@ class HWInstanceOp(IRDLOperation):
             if self.inputs.types != tuple(result for result in m.function_type.inputs):
                 raise VerifyException(
                     "HWInstanceOp "
-                    + str(self.sym_name)
+                    + str(self.inst_name)
                     + " input type must be consistent with the machine "
                     + str(m.sym_name)
                 )
@@ -513,7 +528,7 @@ class HWInstanceOp(IRDLOperation):
             ):
                 raise VerifyException(
                     "HWInstanceOp "
-                    + str(self.sym_name)
+                    + str(self.inst_name)
                     + " output type must be consistent with the machine "
                     + str(m.sym_name)
                 )

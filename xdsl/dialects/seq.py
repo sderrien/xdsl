@@ -135,6 +135,57 @@ class CompRegOp(IRDLOperation):
             raise VerifyException("Both reset and reset_value must be set when one is")
 
 
+@irdl_op_definition
+class CompRegClockEnabledOp(IRDLOperation):
+    """Register a value with an explicit clock-enable input."""
+
+    name = "seq.compreg.ce"
+
+    DATA_TYPE: ClassVar = VarConstraint("DataType", AnyAttr())
+
+    inner_sym = opt_attr_def(InnerSymAttr)
+    input = operand_def(DATA_TYPE)
+    clk = operand_def(clock)
+    clock_enable = operand_def(i1)
+    reset = opt_operand_def(i1)
+    reset_value = opt_operand_def(DATA_TYPE)
+    power_on_value = opt_operand_def(DATA_TYPE)
+    data = result_def(DATA_TYPE)
+
+    irdl_options = (AttrSizedOperandSegments(),)
+
+    assembly_format = (
+        "(`sym` $inner_sym^)? $input `,` $clk `,` $clock_enable "
+        "(`reset` $reset^ `,` $reset_value)? "
+        "(`powerOn` $power_on_value^)? "
+        "attr-dict `:` type($input)"
+    )
+
+    def __init__(
+        self,
+        input: SSAValue,
+        clk: SSAValue,
+        clock_enable: SSAValue,
+        reset: tuple[SSAValue, SSAValue] | None = None,
+        power_on_value: SSAValue | None = None,
+    ):
+        super().__init__(
+            operands=[
+                input,
+                clk,
+                clock_enable,
+                reset[0] if reset is not None else None,
+                reset[1] if reset is not None else None,
+                power_on_value,
+            ],
+            result_types=[input.type],
+        )
+
+    def verify_(self):
+        if (self.reset is None) != (self.reset_value is None):
+            raise VerifyException("Both reset and reset_value must be set when one is")
+
+
 class ClockConstAttrData(Enum):
     LOW = 0
     HIGH = 1
@@ -207,6 +258,7 @@ Seq = Dialect(
     [
         ClockDividerOp,
         CompRegOp,
+        CompRegClockEnabledOp,
         ConstClockOp,
     ],
     [
